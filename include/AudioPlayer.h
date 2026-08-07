@@ -2,6 +2,7 @@
 
 #include <chrono>
 #include <miniaudio.h>
+#include <vector>
 
 #include "APU/spsc.hpp"
 
@@ -19,11 +20,9 @@ struct CallbackData
     int                      remaining_buffer_rounds;
 };
 
-// Receives input at a fixed sample rate from the audio queue and uses miniaudio to resample and output to audiodevice
+// receives input at a fixed sample rate from the audio queue and uses miniaudio to resample and output to audiodevice
 //
-// Why not SFML? SFML's SoundStream introduces additional buffers and has it's own polling mechanism which introduces
-// extra lag. Effectively using it would mean relying on it's implementation-specific behaviour Using miniaudio is
-// simpler as we just need to implement one audio callback
+// miniaudio pulls samples from the emulator's SPSC queue on its realtime callback.
 class AudioPlayer
 {
 public:

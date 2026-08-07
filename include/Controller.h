@@ -1,12 +1,17 @@
 #ifndef CONTROLLER_H
 #define CONTROLLER_H
-#include <SFML/Window.hpp>
 #include <cstdint>
+#include <string>
 #include <vector>
 
 namespace sn
 {
 using Byte = std::uint8_t;
+using Key = int;
+
+[[nodiscard]] bool keyPressed(Key key) noexcept;
+[[nodiscard]] Key keyCodeFromName(const std::string& name) noexcept;
+
 class Controller
 {
 public:
@@ -26,13 +31,13 @@ public:
 
     void strobe(Byte b);
     Byte read();
-    void setKeyBindings(const std::vector<sf::Keyboard::Key>& keys);
+    void setKeyBindings(const std::vector<Key>& keys);
 
 private:
     bool                           m_strobe;
     unsigned int                   m_keyStates;
 
-    std::vector<sf::Keyboard::Key> m_keyBindings;
+    std::vector<Key>               m_keyBindings;
 };
 }
 

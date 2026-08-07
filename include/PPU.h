@@ -95,8 +95,6 @@ private:
       m_sprPage;
 
     Address                             m_dataAddrIncrement;
-
-    std::vector<std::vector<sf::Color>> m_pictureBuffer;
 };
 }
 

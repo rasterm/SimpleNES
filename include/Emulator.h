@@ -1,7 +1,9 @@
 #ifndef EMULATOR_H
 #define EMULATOR_H
-#include <SFML/Graphics.hpp>
 #include <chrono>
+#include <memory>
+#include <string>
+#include <vector>
 
 #include "APU/APU.h"
 #include "AudioPlayer.h"
@@ -10,11 +12,12 @@
 #include "MainBus.h"
 #include "PPU.h"
 #include "PictureBus.h"
+#include "RastermPresenter.h"
 
 namespace sn
 {
-using TimePoint          = std::chrono::high_resolution_clock::time_point;
-using Duration           = std::chrono::high_resolution_clock::duration;
+using TimePoint          = std::chrono::steady_clock::time_point;
+using Duration           = std::chrono::steady_clock::duration;
 
 const int NESVideoWidth  = ScanlineVisibleDots;
 const int NESVideoHeight = VisibleScanlines;
@@ -24,10 +27,7 @@ class Emulator
 public:
     Emulator();
     void run(std::string rom_path);
-    void setVideoWidth(int width);
-    void setVideoHeight(int height);
-    void setVideoScale(float scale);
-    void setKeys(std::vector<sf::Keyboard::Key>& p1, std::vector<sf::Keyboard::Key>& p2);
+    void setKeys(const std::vector<Key>& p1, const std::vector<Key>& p2);
     void muteAudio();
 
 private:
@@ -48,9 +48,8 @@ private:
 
     MainBus                 m_bus;
 
-    sf::RenderWindow        m_window;
     VirtualScreen           m_emulatorScreen;
-    float                   m_screenScale;
+    rastermPresenter        m_presenter;
 
     TimePoint               m_lastWakeup;
 
