@@ -25,23 +25,9 @@ inline std::string rtrim(const std::string& str)
     return s;
 }
 
-void parseControllerConf(std::string filepath, std::vector<sf::Keyboard::Key>& p1, std::vector<sf::Keyboard::Key>& p2)
+void parseControllerConf(std::string filepath, std::vector<Key>& p1, std::vector<Key>& p2)
 {
     const std::string buttonStrings[] = { "A", "B", "Select", "Start", "Up", "Down", "Left", "Right" };
-    const std::string keys[]          = {
-        "A",       "B",        "C",        "D",         "E",       "F",         "G",        "H",       "I",
-        "J",       "K",        "L",        "M",         "N",       "O",         "P",        "Q",       "R",
-        "S",       "T",        "U",        "V",         "W",       "X",         "Y",        "Z",       "Num0",
-        "Num1",    "Num2",     "Num3",     "Num4",      "Num5",    "Num6",      "Num7",     "Num8",    "Num9",
-        "Escape",  "LControl", "LShift",   "LAlt",      "LSystem", "RControl",  "RShift",   "RAlt",    "RSystem",
-        "Menu",    "LBracket", "RBracket", "SemiColon", "Comma",   "Period",    "Quote",    "Slash",   "BackSlash",
-        "Tilde",   "Equal",    "Dash",     "Space",     "Return",  "BackSpace", "Tab",      "PageUp",  "PageDown",
-        "End",     "Home",     "Insert",   "Delete",    "Add",     "Subtract",  "Multiply", "Divide",  "Left",
-        "Right",   "Up",       "Down",     "Numpad0",   "Numpad1", "Numpad2",   "Numpad3",  "Numpad4", "Numpad5",
-        "Numpad6", "Numpad7",  "Numpad8",  "Numpad9",   "F1",      "F2",        "F3",       "F4",      "F5",
-        "F6",      "F7",       "F8",       "F9",        "F10",     "F11",       "F12",      "F13",     "F14",
-        "F15",     "Pause"
-    };
 
     std::ifstream file(filepath);
     std::string   line;
@@ -55,7 +41,7 @@ void parseControllerConf(std::string filepath, std::vector<sf::Keyboard::Key>& p
     while (std::getline(file, line))
     {
         line = rtrim(ltrim(line));
-        if (line[0] == '#' || line.empty())
+        if (line.empty() || line[0] == '#')
             continue;
         else if (line == "[Player1]")
         {
@@ -67,18 +53,17 @@ void parseControllerConf(std::string filepath, std::vector<sf::Keyboard::Key>& p
         }
         else if (state == Player1 || state == Player2)
         {
-            auto divider = line.find("=");
-            auto it =
-                   std::find(std::begin(buttonStrings), std::end(buttonStrings), ltrim(rtrim(line.substr(0, divider)))),
-                 it2 = std::find(std::begin(keys), std::end(keys), ltrim(rtrim(line.substr(divider + 1))));
-            if (it == std::end(buttonStrings) || it2 == std::end(keys))
+            const auto divider = line.find("=");
+            const auto it = std::find(std::begin(buttonStrings), std::end(buttonStrings),
+                                      ltrim(rtrim(line.substr(0, divider))));
+            const Key key = keyCodeFromName(ltrim(rtrim(line.substr(divider + 1))));
+            if (it == std::end(buttonStrings) || key == 0)
             {
                 LOG(Error) << "Invalid key in configuration file at Line " << line_no << std::endl;
                 continue;
             }
-            auto i                          = std::distance(std::begin(buttonStrings), it);
-            auto key                        = std::distance(std::begin(keys), it2);
-            (state == Player1 ? p1 : p2)[i] = static_cast<sf::Keyboard::Key>(key);
+            const auto i = std::distance(std::begin(buttonStrings), it);
+            (state == Player1 ? p1 : p2)[i] = key;
         }
         else
             LOG(Error) << "Invalid line in key configuration at Line " << line_no << std::endl;

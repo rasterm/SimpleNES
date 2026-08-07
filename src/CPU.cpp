@@ -50,8 +50,8 @@ void IRQHandler::pull()
 
 void CPU::setIRQPulldown(int bit, bool state)
 {
-    int mask       = ~(1 << bit);
-    m_irqPulldowns = (m_irqPulldowns & mask) | state;
+    const int mask = ~(1 << bit);
+    m_irqPulldowns = (m_irqPulldowns & mask) | (static_cast<int>(state) << bit);
 };
 
 void CPU::interruptSequence(InterruptType type)
@@ -65,9 +65,10 @@ void CPU::interruptSequence(InterruptType type)
     pushStack(r_PC >> 8);
     pushStack(r_PC);
 
-    Byte flags = f_N << 7 | f_V << 6 | 1 << 5 | // unused bit, supposed to be always 1
-                 (type == BRK_) << 4 |          // B flag set if BRK
-                 f_D << 3 | f_I << 2 | f_Z << 1 | f_C;
+    Byte flags = static_cast<int>(f_N) << 7 | static_cast<int>(f_V) << 6 | 1 << 5 |
+                 (type == BRK_) << 4 |
+                 static_cast<int>(f_D) << 3 | static_cast<int>(f_I) << 2 |
+                 static_cast<int>(f_Z) << 1 | static_cast<int>(f_C);
     pushStack(flags);
 
     f_I = true;
@@ -145,7 +146,9 @@ void CPU::step()
         return;
     }
 
-    int psw = f_N << 7 | f_V << 6 | 1 << 5 | f_D << 3 | f_I << 2 | f_Z << 1 | f_C;
+    int psw = static_cast<int>(f_N) << 7 | static_cast<int>(f_V) << 6 | 1 << 5 |
+              static_cast<int>(f_D) << 3 | static_cast<int>(f_I) << 2 |
+              static_cast<int>(f_Z) << 1 | static_cast<int>(f_C);
     LOG_CPU << std::hex << std::setfill('0') << std::uppercase << std::setw(4) << +r_PC << "  " << std::setw(2)
             << +m_bus.read(r_PC) << "  "
             << "A:" << std::setw(2) << +r_A << " "
@@ -223,9 +226,10 @@ bool CPU::executeImplied(Byte opcode)
     break;
     case PHP:
     {
-        Byte flags = f_N << 7 | f_V << 6 | 1 << 5 | // supposed to always be 1
-                     1 << 4 |                       // PHP pushes with the B flag as 1, no matter what
-                     f_D << 3 | f_I << 2 | f_Z << 1 | f_C;
+        Byte flags = static_cast<int>(f_N) << 7 | static_cast<int>(f_V) << 6 | 1 << 5 |
+                     1 << 4 |
+                     static_cast<int>(f_D) << 3 | static_cast<int>(f_I) << 2 |
+                     static_cast<int>(f_Z) << 1 | static_cast<int>(f_C);
         pushStack(flags);
     }
     break;

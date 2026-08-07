@@ -3,10 +3,24 @@
 #include "Log.h"
 
 #include <chrono>
+#include <thread>
+
+#include <windows.h>
 
 namespace sn
 {
-using std::chrono::high_resolution_clock;
+using Clock = std::chrono::steady_clock;
+
+namespace
+{
+bool pressedOnce(const Key key, bool& previous) noexcept
+{
+    const bool current = keyPressed(key);
+    const bool pressed = current && !previous;
+    previous = current;
+    return pressed;
+}
+}
 
 Emulator::Emulator()
   : m_cpu(m_bus)
@@ -14,7 +28,6 @@ Emulator::Emulator()
   , m_ppu(m_pictureBus, m_emulatorScreen)
   , m_apu(m_audioPlayer, m_cpu.createIRQHandler(), [&](Address addr) { return DMCDMA(addr); })
   , m_bus(m_ppu, m_apu, m_controller1, m_controller2, [&](Byte b) { OAMDMA(b); })
-  , m_screenScale(3.f)
   , m_lastWakeup()
 {
     m_ppu.setInterruptCallback([&]() { m_cpu.nmiInterrupt(); });
@@ -43,106 +56,82 @@ void Emulator::run(std::string rom_path)
     m_cpu.reset();
     m_ppu.reset();
 
-    m_window.create(sf::VideoMode(NESVideoWidth * m_screenScale, NESVideoHeight * m_screenScale),
-                    "SimpleNES",
-                    sf::Style::Titlebar | sf::Style::Close);
-    m_window.setVerticalSyncEnabled(true);
-    m_emulatorScreen.create(NESVideoWidth, NESVideoHeight, m_screenScale, sf::Color::White);
+    m_emulatorScreen.create(NESVideoWidth, NESVideoHeight, Color(0xffffffff));
+    if (!m_presenter.start(NESVideoWidth, NESVideoHeight))
+    {
+        LOG(Error) << "rasterm failed to initialize Windows terminal output." << std::endl;
+        return;
+    }
 
-    m_lastWakeup  = high_resolution_clock::now();
+    m_lastWakeup  = Clock::now();
     m_elapsedTime = m_lastWakeup - m_lastWakeup;
 
     m_audioPlayer.start();
 
-    sf::Event event;
-    bool      focus = true, pause = false;
-    while (m_window.isOpen())
+    bool pause = false;
+    bool escapeWasPressed = false;
+    bool f2WasPressed = false;
+    bool f3WasPressed = false;
+    bool f4WasPressed = false;
+    bool f5WasPressed = false;
+    std::uint64_t renderedFrame = 0;
+    while (true)
     {
-        while (m_window.pollEvent(event))
+        if (pressedOnce(VK_ESCAPE, escapeWasPressed))
         {
-            if (event.type == sf::Event::Closed ||
-                (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::Escape))
+            return;
+        }
+        if (pressedOnce(VK_F2, f2WasPressed))
+        {
+            pause = !pause;
+            if (!pause)
             {
-                m_window.close();
-                return;
+                m_lastWakeup = Clock::now();
+                LOG(Info) << "Unpaused." << std::endl;
             }
-            else if (event.type == sf::Event::GainedFocus)
+            else
             {
-                focus          = true;
-                const auto now = high_resolution_clock::now();
-                LOG(Info) << "Gained focus. Removing " << (now - m_lastWakeup).count() << "ns from timers" << std::endl;
-                m_lastWakeup = now;
+                LOG(Info) << "Paused." << std::endl;
             }
-            else if (event.type == sf::Event::LostFocus)
+        }
+        if (pressedOnce(VK_F4, f4WasPressed))
+            Log::get().setLevel(Info);
+        if (pressedOnce(VK_F5, f5WasPressed))
+            Log::get().setLevel(InfoVerbose);
+
+        if (pause)
+        {
+            if (pressedOnce(VK_F3, f3WasPressed))
             {
-                focus = false;
-                LOG(Info) << "Losing focus; paused." << std::endl;
-            }
-            else if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::F2)
-            {
-                pause = !pause;
-                if (!pause)
+                for (int i = 0; i < 29781; ++i)
                 {
-                    const auto now = high_resolution_clock::now();
-                    LOG(Info) << "Unpaused. Removing " << (now - m_lastWakeup).count() << "ns from timers" << std::endl;
-                    m_lastWakeup = now;
-                }
-                else
-                {
-                    LOG(Info) << "Paused." << std::endl;
-                }
-            }
-            else if (pause && event.type == sf::Event::KeyReleased && event.key.code == sf::Keyboard::F3)
-            {
-                for (int i = 0; i < 29781; ++i) // Around one frame
-                {
-                    // PPU
-                    m_ppu.step();
-                    m_ppu.step();
-                    m_ppu.step();
-                    // CPU
+                    m_ppu.step(); m_ppu.step(); m_ppu.step();
                     m_cpu.step();
-                    // APU
                     m_apu.step();
                 }
             }
-            else if (focus && event.type == sf::Event::KeyReleased && event.key.code == sf::Keyboard::F4)
-            {
-                Log::get().setLevel(Info);
-            }
-            else if (focus && event.type == sf::Event::KeyReleased && event.key.code == sf::Keyboard::F5)
-            {
-                Log::get().setLevel(InfoVerbose);
-            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            continue;
         }
 
-        if (focus && !pause)
+        const auto now = Clock::now();
+        m_elapsedTime += now - m_lastWakeup;
+        m_lastWakeup = now;
+        while (m_elapsedTime > cpu_clock_period_ns)
         {
-            const auto now  = high_resolution_clock::now();
-            m_elapsedTime  += now - m_lastWakeup;
-            m_lastWakeup    = now;
+            m_ppu.step(); m_ppu.step(); m_ppu.step();
+            m_cpu.step();
+            m_apu.step();
+            m_elapsedTime -= cpu_clock_period_ns;
+        }
 
-            while (m_elapsedTime > cpu_clock_period_ns)
-            {
-                // PPU
-                m_ppu.step();
-                m_ppu.step();
-                m_ppu.step();
-                // CPU
-                m_cpu.step();
-                // APU
-                m_apu.step();
-
-                m_elapsedTime -= cpu_clock_period_ns;
-            }
-
-            m_window.draw(m_emulatorScreen);
-            m_window.display();
+        if (m_emulatorScreen.frameNumber() != renderedFrame)
+        {
+            renderedFrame = m_emulatorScreen.frameNumber();
+            m_presenter.submit(m_emulatorScreen.data(), m_emulatorScreen.stride());
         }
         else
-        {
-            sf::sleep(sf::milliseconds(1000 / 60));
-        }
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 }
 
@@ -166,27 +155,7 @@ Byte Emulator::DMCDMA(Address addr)
     return m_bus.read(addr);
 };
 
-void Emulator::setVideoHeight(int height)
-{
-    m_screenScale = height / float(NESVideoHeight);
-    LOG(Info) << "Scale: " << m_screenScale << " set. Screen: " << int(NESVideoWidth * m_screenScale) << "x"
-              << int(NESVideoHeight * m_screenScale) << std::endl;
-}
-
-void Emulator::setVideoWidth(int width)
-{
-    m_screenScale = width / float(NESVideoWidth);
-    LOG(Info) << "Scale: " << m_screenScale << " set. Screen: " << int(NESVideoWidth * m_screenScale) << "x"
-              << int(NESVideoHeight * m_screenScale) << std::endl;
-}
-void Emulator::setVideoScale(float scale)
-{
-    m_screenScale = scale;
-    LOG(Info) << "Scale: " << m_screenScale << " set. Screen: " << int(NESVideoWidth * m_screenScale) << "x"
-              << int(NESVideoHeight * m_screenScale) << std::endl;
-}
-
-void Emulator::setKeys(std::vector<sf::Keyboard::Key>& p1, std::vector<sf::Keyboard::Key>& p2)
+void Emulator::setKeys(const std::vector<Key>& p1, const std::vector<Key>& p2)
 {
     m_controller1.setKeyBindings(p1);
     m_controller2.setKeyBindings(p2);
