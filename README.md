@@ -18,19 +18,15 @@ remain application responsibilities.
 From the rasterm repository root:
 
 ```powershell
-cmake -S . -B build/core -A x64 -DRASTERM_BUILD_TESTS=OFF
-cmake --build build/core --config Release --parallel
-cmake --install build/core --config Release --prefix build/install
-cmake -S apps/SimpleNES -B build/simplenes -A x64 `
-  -DCMAKE_PREFIX_PATH="$PWD/build/install" `
+cmake -S apps/SimpleNES -B apps/SimpleNES/build -A x64 `
   -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
-cmake --build build/simplenes --config Release --parallel
+cmake --build apps/SimpleNES/build --config Release --parallel
 ```
 
 ## Run
 
 ```powershell
-build/simplenes/Release/SimpleNES.exe C:/Games/game.nes
+apps/SimpleNES/build/Release/SimpleNES.exe C:/Games/game.nes
 ```
 
 `Escape` exits, `F2` pauses, `F3` advances one paused frame, and `F4`/`F5` adjust log

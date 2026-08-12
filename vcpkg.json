@@ -1,0 +1,18 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "name": "rasterm-simplenes",
+  "version-string": "0.1.0",
+  "description": "SimpleNES by rasterm.",
+  "license": "MIT",
+  "supports": "windows & x64",
+  "builtin-baseline": "7e19f3c64cb636ee21f41bfe8558a6dfaae6236f",
+  "dependencies": [
+    {
+      "name": "opencv4",
+      "default-features": false,
+      "features": [
+        "intrinsics"
+      ]
+    }
+  ]
+}
